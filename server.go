@@ -1,5 +1,9 @@
+package main
+
+import "net/http"
+
 type Handler interface {
-	ServeHTTP(ResponseWriter, *Request)
+	ServeHTTP(w http.ResponseWriter, r *http.Request)
 }
 
-func ListenAndServe(addr string, handler Handler) error
+//func ListenAndServe(addr string, handler Handler) error {}
