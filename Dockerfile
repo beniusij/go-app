@@ -25,7 +25,7 @@ RUN go get -d -v
 # RUN go mod verify
 
 # Build binary
-RUN GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /go/bin/backoffice
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -a -installsuffix cgo -o /go/bin/backoffice .
 
 #########################################
 # Step 2: Build a small image
