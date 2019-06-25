@@ -44,7 +44,7 @@ COPY --from=builder go/bin/backoffice go/bin/main
 USER appuser
 
 # Port on which the service will be exposed
-EXPOSE 9292
+EXPOSE 8080
 
 # Run the main binary
 ENTRYPOINT ["/go/bin/main"]
