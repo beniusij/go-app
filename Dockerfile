@@ -15,11 +15,7 @@ RUN adduser -D -g '' appuser
 WORKDIR $GOPATH/src/mypackages/go-app/
 COPY . .
 
-RUN make deps
-RUN make bin
-
 # Fetch dependencies
-
 # Using go get
 RUN go get -d -v 
 

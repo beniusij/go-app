@@ -4,62 +4,24 @@ GOBUILD=$(GOCMD) build
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get -u -v
+APP_NAME=go-app
 
-# Detect the OS so that we can build proper statically linked binary
-OS := $(shell uname -s | awk '{print tolower($$0)}')
+# Docker build image from Dockerfile
+.PHONY: build
+build:
+	docker build -t $(APP_NAME) .
 
-# Get a short hash of the git head for building images
-TAG = $$(git rev-pare --short HEAD)
+# Start docker container and run a command
+.PHONY: up
+up:
+	docker run -d -p 8080:8080 --name="$(APP_NAME)" $(APP_NAME)
 
-# Name of actual binary to create
-BINARY = main
-
-# GOARCH tells go build which arch. to use while building a statically linked executable
-GOARCH = amd64
-
-# Setup the -ldflags option for go build here
-# While statically linking we want to inject version related information into the binary
-LDFLAGS = -ldflags="$$(govvv - flags)"
-
-.PHONY: run
-run: bin #this will cause "bin" target to be build first
-	./$(BINARY)-$(OS)-$(GOARCH) # Execute the binary
-
-# bin creates a platform-specific linked binary
-.PHONY: bin
-bin:
-	env CGO_ENABLED=0 GOOS=$(OS) GOARCH=${GOARCH} go build -a -installsuffix cgo ${LDFLAGS} -o ${BINARY}-$(OS)-${GOARCH} . ;
-
-# Docker build internally (within Dockerfile) triggers "make bin", which creates a "linux" binary.
-.PHONY: docker
-docker:
-	docker build -t daveamit/$(BINARY):$(GOARCH)-$(TAG) .
-
-# Push pushes the image to the docker repository.
-.PHONY: push
-push: docker
-	docker push daveamit/$(BINARY):$(GOARCH)-$(TAG)
+# Stops and removes container
+.PHONY: stop
+stop:
+	docker stop $(APP_NAME); docker rm $(APP_NAME)
 
 # Runs unit tests.
 .PHONY: test
 test:
 	$(GOTEST)
-
-# Generates a coverage report
-.PHONY: cover
-cover:
-	${GOCMD} test -coverprofile=coverage.out ./... && ${GOCMD} tool cover -html=coverage.out
-
-# Remove coverage report and the binary.
-.SILENT: clean
-.PHONY: clean
-clean:
-	$(GOCLEAN)
-	@rm -f ${BINARY}-$(OS)-${GOARCH}
-	@rm -f coverage.out
-
-# There are much better ways to manage deps in golang, I'm going go get just for brevity
-.PHONY: deps
-deps:
-	$(GOGET) github.com/ahmetb/govvv
-	$(GOGET) github.com/gorilla/mux
