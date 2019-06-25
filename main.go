@@ -1,7 +1,13 @@
 package main
 
-import "fmt"
+import (
+	"log"
+	"net/http"
+)
 
 func main() {
-	fmt.Println("Hello, world!")
+	handler := http.HandlerFunc(PlayerServer)
+	if err := http.ListenAndServe(":5000", handler); err != nil {
+		log.Fatalf("could not listen on port 5000 %v", err)
+	}
 }
