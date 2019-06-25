@@ -6,14 +6,17 @@
 
 FROM golang@sha256:cee6f4b901543e8e3f20da3a4f7caac6ea643fd5a46201c3c2387183a332d989 AS builder
 
-# Install git + SSL ca certificates
-RUN apk update && apk add --no-cache git ca-certificates tzdata && update-ca-certificates
+# Install git + SSL ca certificates + make
+RUN apk update && apk add --no-cache git make ca-certificates tzdata && update-ca-certificates
 
 # Create appuser
 RUN adduser -D -g '' appuser
 
 WORKDIR $GOPATH/src/mypackages/go-app/
 COPY . .
+
+RUN make deps
+RUN make bin
 
 # Fetch dependencies
 
@@ -39,7 +42,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /etc/passwd /etc/passwd
 
 # Copy statis executable
-COPY --from=builder go/bin/backoffice go/bin/hello
+COPY --from=builder go/bin/backoffice go/bin/main
 
 # Use an unpriviledged user
 USER appuser
@@ -47,5 +50,5 @@ USER appuser
 # Port on which the service will be exposed
 EXPOSE 9292
 
-# Run the hello binary
-ENTRYPOINT ["/go/bin/hello"]
+# Run the main binary
+ENTRYPOINT ["/go/bin/main"]
