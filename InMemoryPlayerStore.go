@@ -1,4 +1,4 @@
-package pocker
+package poker
 
 type Player struct {
 	Name string

@@ -1,4 +1,4 @@
-package pocker
+package poker
 
 import (
 	"encoding/json"
