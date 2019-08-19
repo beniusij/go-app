@@ -1,6 +1,7 @@
 package poker
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,26 +10,28 @@ import (
 	"net/http/httptest"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 )
 
 type StubPlayerStore struct {
-	scores		map[string]int
-	winCalls	[]string
-	league []Player
+	Scores		map[string]int
+	WinCalls	[]string
+	League []Player
 }
 
 func (s *StubPlayerStore) GetPlayerScore(name string) int {
-	score := s.scores[name]
+	score := s.Scores[name]
 	return score
 }
 
 func (s *StubPlayerStore) RecordWin(name string) {
-	s.winCalls = append(s.winCalls, name)
+	s.WinCalls = append(s.WinCalls, name)
 }
 
 func (s *StubPlayerStore) GetLeague() League {
-	return s.league
+	return s.League
 }
 
 func NewPostWinRequest(name string) *http.Request {
@@ -102,12 +105,12 @@ func AssertNoError(t *testing.T, err error) {
 func AssertPlayerWin(t *testing.T, store *StubPlayerStore, winner string) {
 	t.Helper()
 
-	if len(store.winCalls) != 1 {
-		t.Fatalf("got %d calls to RecordWin want %d", len(store.winCalls), 1)
+	if len(store.WinCalls) != 1 {
+		t.Fatalf("got %d calls to RecordWin want %d", len(store.WinCalls), 1)
 	}
 
-	if store.winCalls[0] != winner {
-		t.Errorf("did not store correct winner got %q want %q", store.winCalls[0], winner)
+	if store.WinCalls[0] != winner {
+		t.Errorf("did not store correct winner got %q want %q", store.WinCalls[0], winner)
 	}
 }
 
@@ -128,4 +131,84 @@ func CreateTempFile(t *testing.T, initialData string) (*os.File, func()) {
 	}
 
 	return tmpfile, removeFile
+}
+
+type ScheduledAlert struct {
+	At time.Duration
+	Amount int
+}
+
+func (s ScheduledAlert) String() string {
+	return fmt.Sprintf("%d chips at %v", s.Amount, s.At)
+}
+
+type SpyBlindAlerter struct {
+	Alerts []ScheduledAlert
+}
+
+func (s *SpyBlindAlerter) ScheduleAlertAt(at time.Duration, amount int) {
+	s.Alerts = append(s.Alerts, ScheduledAlert{at, amount})
+}
+
+func AssertScheduledAlert(t *testing.T, got, want ScheduledAlert) {
+	t.Helper()
+
+	if got != want {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+}
+
+func AssertMessageSentToUser(t *testing.T, stdout *bytes.Buffer, messages ...string) {
+	t.Helper()
+
+	want := strings.Join(messages, "")
+	got := stdout.String()
+	if got != want {
+		t.Errorf("got %q sent to stdout but expected %+v", got, messages)
+	}
+}
+
+type GameSpy struct {
+	StartCalled bool
+	StartCalledWith int
+
+	FinishedCalled bool
+	FinishCalledWith string
+}
+
+func (g *GameSpy) Start(numberOfPlayers int) {
+	g.StartCalled = true
+	g.StartCalledWith = numberOfPlayers
+}
+
+func (g *GameSpy) Finish(winner string) {
+	g.FinishCalledWith = winner
+}
+
+func UserSends(messages ...string) io.Reader {
+	return strings.NewReader(strings.Join(messages, "\n"))
+}
+
+func AssertGameNotStarted(t *testing.T, game *GameSpy) {
+	t.Helper()
+
+	if game.StartCalled {
+		t.Errorf("game should not have started")
+	}
+}
+
+func AssertGameStartedWith(t *testing.T, game *GameSpy, numberOfPlayersWanted int) {
+	t.Helper()
+
+	if game.StartCalledWith != numberOfPlayersWanted {
+		t.Errorf("wanted Start called with %d but got %d", numberOfPlayersWanted, game.StartCalledWith)
+	}
+}
+
+func AssertFinishCalledWith(t *testing.T, game *GameSpy, winner string) {
+	t.Helper()
+
+	if game.FinishCalledWith != winner {
+		t.Errorf("expected finish called with %q but got %q", winner, game.FinishCalledWith)
+	}
 }
