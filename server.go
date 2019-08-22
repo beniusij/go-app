@@ -3,6 +3,8 @@ package poker
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
+	"html/template"
 	"net/http"
 )
 
@@ -15,24 +17,37 @@ type PlayerStore interface {
 type PlayerServer struct {
 	store PlayerStore
 	http.Handler
+	template *template.Template
 }
 
-func NewPlayerServer(store PlayerStore) *PlayerServer  {
+const JsonContentType = "application/json"
+const htmlTemplatePath = "game.html"
+
+func NewPlayerServer(store PlayerStore) (*PlayerServer, error)  {
 	p := new(PlayerServer)
 
+	tmpl, err := template.ParseFiles("game.html")
+
+	if err != nil {
+		return nil, fmt.Errorf("problem opening %s %v", htmlTemplatePath, err)
+	}
+
+	p.template = tmpl
 	p.store = store
 
 	router := http.NewServeMux()
 	router.Handle("/league", http.HandlerFunc(p.leagueHandler))
 	router.Handle("/players/", http.HandlerFunc(p.playerHandler))
+	router.Handle("/game", http.HandlerFunc(p.game))
+	router.Handle("/ws", http.HandlerFunc(p.webSocket))
 
 	p.Handler = router
 
-	return p
+	return p, nil
 }
 
 func (p *PlayerServer) leagueHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("content-type", "application/json")
+	w.Header().Set("content-type", JsonContentType)
 	json.NewEncoder(w).Encode(p.store.GetLeague())
 }
 
@@ -62,15 +77,18 @@ func (p *PlayerServer) processWin(w http.ResponseWriter, player string) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func GetPlayerScore(name string) string {
-	if name == "Pepper" {
-		return "20"
-	}
+func (p *PlayerServer) game(w http.ResponseWriter, r *http.Request) {
+	p.template.Execute(w, nil)
+}
 
-	if name == "Floyd" {
-		return "10"
-	}
+var wsUpgrader = websocket.Upgrader{
+	ReadBufferSize:	1024,
+	WriteBufferSize: 1024,
+}
 
-	return ""
+func (p *PlayerServer) webSocket(w http.ResponseWriter, r *http.Request) {
+	conn, _ := wsUpgrader.Upgrade(w, r, nil)
+	_, winnerMsg, _ := conn.ReadMessage()
+	p.store.RecordWin(string(winnerMsg))
 }
 

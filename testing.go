@@ -136,6 +136,7 @@ func CreateTempFile(t *testing.T, initialData string) (*os.File, func()) {
 type ScheduledAlert struct {
 	At time.Duration
 	Amount int
+	To io.Writer
 }
 
 func (s ScheduledAlert) String() string {
@@ -146,8 +147,8 @@ type SpyBlindAlerter struct {
 	Alerts []ScheduledAlert
 }
 
-func (s *SpyBlindAlerter) ScheduleAlertAt(at time.Duration, amount int) {
-	s.Alerts = append(s.Alerts, ScheduledAlert{at, amount})
+func (s *SpyBlindAlerter) ScheduleAlertAt(at time.Duration, amount int, to io.Writer) {
+	s.Alerts = append(s.Alerts, ScheduledAlert{at, amount, to})
 }
 
 func AssertScheduledAlert(t *testing.T, got, want ScheduledAlert) {
@@ -171,12 +172,13 @@ func AssertMessageSentToUser(t *testing.T, stdout *bytes.Buffer, messages ...str
 type GameSpy struct {
 	StartCalled bool
 	StartCalledWith int
+	BlindAlert []byte
 
 	FinishedCalled bool
 	FinishCalledWith string
 }
 
-func (g *GameSpy) Start(numberOfPlayers int) {
+func (g *GameSpy) Start(numberOfPlayers int, out io.Writer) {
 	g.StartCalled = true
 	g.StartCalledWith = numberOfPlayers
 }
