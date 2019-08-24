@@ -180,6 +180,7 @@ type GameSpy struct {
 func (g *GameSpy) Start(numberOfPlayers int, out io.Writer) {
 	g.StartCalled = true
 	g.StartCalledWith = numberOfPlayers
+	out.Write(g.BlindAlert)
 }
 
 func (g *GameSpy) Finish(winner string) {
@@ -209,7 +210,21 @@ func AssertGameStartedWith(t *testing.T, game *GameSpy, numberOfPlayersWanted in
 func AssertFinishCalledWith(t *testing.T, game *GameSpy, winner string) {
 	t.Helper()
 
-	if game.FinishCalledWith != winner {
+	passed := retryUntil(500 * time.Millisecond, func() bool {
+		return game.FinishCalledWith == winner
+	})
+
+	if !passed {
 		t.Errorf("expected finish called with %q but got %q", winner, game.FinishCalledWith)
 	}
+}
+
+func retryUntil(d time.Duration, f func() bool) bool {
+	deadline := time.Now().Add(d)
+	for time.Now().Before(deadline) {
+		if f() {
+			return true
+		}
+	}
+	return false
 }

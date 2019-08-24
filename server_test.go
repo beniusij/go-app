@@ -246,6 +246,8 @@ func TestFileSystemStore(t *testing.T) {
 	})
 }
 
+var tenMS = 10 * time.Millisecond
+
 func TestGame(t *testing.T) {
 	t.Run("GET /playGame returns 200", func(t *testing.T) {
 		server, _ := poker.NewPlayerServer(&poker.StubPlayerStore{}, dummyGame)
@@ -258,9 +260,11 @@ func TestGame(t *testing.T) {
 		poker.AssertStatus(t, response.Code, http.StatusOK)
 	})
 
-	t.Run("start a playGame with 3 players and declare Ruth the winner", func(t *testing.T) {
-		game := &poker.GameSpy{}
+	t.Run("start a game with 3 players and declare Ruth the winner", func(t *testing.T) {
+		wantedBlindAlert := "Blind is 100"
 		winner := "Ruth"
+
+		game := &poker.GameSpy{BlindAlert: []byte(wantedBlindAlert)}
 		server := httptest.NewServer(mustMakePlayerServer(t, dummyPlayerStore, game))
 		ws := mustDialWS(t, "ws"+strings.TrimPrefix(server.URL, "http")+"/ws")
 
@@ -270,9 +274,11 @@ func TestGame(t *testing.T) {
 		writeWSMessage(t, ws, "3")
 		writeWSMessage(t, ws, winner)
 
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(tenMS)
+
 		poker.AssertGameStartedWith(t, game, 3)
 		poker.AssertFinishCalledWith(t, game, winner)
+		within(t, tenMS, func() { assertWebsocketGotMsg(t, ws, wantedBlindAlert) })
 	})
 }
 
@@ -302,5 +308,29 @@ func writeWSMessage(t *testing.T, conn *websocket.Conn, message string) {
 	t.Helper()
 	if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
 		t.Fatalf("could not send message over ws connection %v", err)
+	}
+}
+
+func within(t *testing.T, d time.Duration, assert func()) {
+	t.Helper()
+
+	done := make(chan struct{}, 1)
+
+	go func() {
+		assert()
+		done <- struct{}{}
+	}()
+
+	select {
+	case <-time.After(d):
+		t.Error("timed out")
+		case <-done:
+	}
+}
+
+func assertWebsocketGotMsg(t *testing.T, ws *websocket.Conn, want string) {
+	_, msg, _ := ws.ReadMessage()
+	if string(msg) != want {
+		t.Errorf(`got "%s", want "%s"`, string(msg), want)
 	}
 }
