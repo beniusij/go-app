@@ -136,7 +136,6 @@ func CreateTempFile(t *testing.T, initialData string) (*os.File, func()) {
 type ScheduledAlert struct {
 	At time.Duration
 	Amount int
-	To io.Writer
 }
 
 func (s ScheduledAlert) String() string {
@@ -148,7 +147,7 @@ type SpyBlindAlerter struct {
 }
 
 func (s *SpyBlindAlerter) ScheduleAlertAt(at time.Duration, amount int, to io.Writer) {
-	s.Alerts = append(s.Alerts, ScheduledAlert{at, amount, to})
+	s.Alerts = append(s.Alerts, ScheduledAlert{at, amount})
 }
 
 func AssertScheduledAlert(t *testing.T, got, want ScheduledAlert) {
