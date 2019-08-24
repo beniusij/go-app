@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+var dummyGame = &poker.GameSpy{}
+
 func TestGETPlayers(t *testing.T) {
 	store := poker.StubPlayerStore{
 		map[string]int{
@@ -19,7 +21,7 @@ func TestGETPlayers(t *testing.T) {
 		nil,
 		nil,
 	}
-	server, _ := poker.NewPlayerServer(&store)
+	server, _ := poker.NewPlayerServer(&store, dummyGame)
 
 	t.Run("returns Pepper's score", func(t *testing.T) {
 		request := poker.NewGetScoreRequest("Pepper")
@@ -57,7 +59,7 @@ func TestStoreWins(t *testing.T) {
 		nil,
 		nil,
 	}
-	server, _ := poker.NewPlayerServer(&store)
+	server, _ := poker.NewPlayerServer(&store, dummyGame)
 
 	t.Run("it records wins on POST", func(t *testing.T) {
 		player := "Pepper"
@@ -86,7 +88,7 @@ func TestRecordingWinsAndRetrievingThem(t *testing.T) {
 
 	poker.AssertNoError(t, err)
 
-	server, _ := poker.NewPlayerServer(store)
+	server, _ := poker.NewPlayerServer(store, dummyGame)
 	player := "Pepper"
 
 	server.ServeHTTP(httptest.NewRecorder(), poker.NewPostWinRequest(player))
@@ -125,7 +127,7 @@ func TestLeague(t *testing.T) {
 		}
 
 		store := poker.StubPlayerStore{nil, nil, wantedLeague}
-		server, _ := poker.NewPlayerServer(&store)
+		server, _ := poker.NewPlayerServer(&store, dummyGame)
 
 		request := poker.NewLeagueRequest()
 		response := httptest.NewRecorder()
@@ -245,8 +247,8 @@ func TestFileSystemStore(t *testing.T) {
 }
 
 func TestGame(t *testing.T) {
-	t.Run("GET /game returns 200", func(t *testing.T) {
-		server, _ := poker.NewPlayerServer(&poker.StubPlayerStore{})
+	t.Run("GET /playGame returns 200", func(t *testing.T) {
+		server, _ := poker.NewPlayerServer(&poker.StubPlayerStore{}, dummyGame)
 
 		request, _ := newGameRequest()
 		response := httptest.NewRecorder()
@@ -256,35 +258,30 @@ func TestGame(t *testing.T) {
 		poker.AssertStatus(t, response.Code, http.StatusOK)
 	})
 
-	t.Run("when we get a message over a websocket it is a winner of a game", func(t *testing.T) {
-		store := &poker.StubPlayerStore{}
+	t.Run("start a playGame with 3 players and declare Ruth the winner", func(t *testing.T) {
+		game := &poker.GameSpy{}
 		winner := "Ruth"
-		server := httptest.NewServer(mustMakePlayerServer(t, store))
+		server := httptest.NewServer(mustMakePlayerServer(t, dummyPlayerStore, game))
+		ws := mustDialWS(t, "ws"+strings.TrimPrefix(server.URL, "http")+"/ws")
+
 		defer server.Close()
-
-		wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws"
-
-		ws, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
-		if err != nil {
-			t.Fatalf("could not open a ws connection on %s %v", wsURL, err)
-		}
 		defer ws.Close()
 
-		if err := ws.WriteMessage(websocket.TextMessage, []byte(winner)); err != nil {
-			t.Fatalf("could not send message over ws connection %v", err)
-		}
+		writeWSMessage(t, ws, "3")
+		writeWSMessage(t, ws, winner)
 
 		time.Sleep(10 * time.Millisecond)
-		poker.AssertPlayerWin(t, store, winner)
+		poker.AssertGameStartedWith(t, game, 3)
+		poker.AssertFinishCalledWith(t, game, winner)
 	})
 }
 
 func newGameRequest() (*http.Request, error) {
-	return http.NewRequest(http.MethodGet, "/game", nil)
+	return http.NewRequest(http.MethodGet, "/playGame", nil)
 }
 
-func mustMakePlayerServer(t *testing.T, store poker.PlayerStore) *poker.PlayerServer {
-	server, err := poker.NewPlayerServer(store)
+func mustMakePlayerServer(t *testing.T, store poker.PlayerStore, game poker.Game) *poker.PlayerServer {
+	server, err := poker.NewPlayerServer(store, game)
 	if err != nil {
 		t.Fatal("problem creating player server", err)
 	}

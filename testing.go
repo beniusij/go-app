@@ -194,7 +194,7 @@ func AssertGameNotStarted(t *testing.T, game *GameSpy) {
 	t.Helper()
 
 	if game.StartCalled {
-		t.Errorf("game should not have started")
+		t.Errorf("playGame should not have started")
 	}
 }
 

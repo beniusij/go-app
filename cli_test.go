@@ -14,7 +14,7 @@ var dummyStdOut = &bytes.Buffer{}
 
 func TestCLI(t *testing.T) {
 
-	t.Run("start game with 3 players and finish game with 'Chris' as winner", func(t *testing.T) {
+	t.Run("start playGame with 3 players and finish playGame with 'Chris' as winner", func(t *testing.T) {
 		game := &poker.GameSpy{}
 		stdout := &bytes.Buffer{}
 
@@ -28,7 +28,7 @@ func TestCLI(t *testing.T) {
 		poker.AssertFinishCalledWith(t, game, "Chris")
 	})
 
-	t.Run("start game with 8 players and record 'Cleo' as winner", func(t *testing.T) {
+	t.Run("start playGame with 8 players and record 'Cleo' as winner", func(t *testing.T) {
 		game := &poker.GameSpy{}
 
 		in := poker.UserSends("8", "Cleo wins")
@@ -60,7 +60,7 @@ func TestCLI(t *testing.T) {
 		}
 	})
 
-	t.Run("it prints an error when a non numeric value is entered and does not start the game", func(t *testing.T) {
+	t.Run("it prints an error when a non numeric value is entered and does not start the playGame", func(t *testing.T) {
 		game := &poker.GameSpy{}
 
 		stdout := &bytes.Buffer{}

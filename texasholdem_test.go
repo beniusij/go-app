@@ -9,7 +9,7 @@ import (
 )
 
 func TestGame_Start(t *testing.T) {
-	t.Run("schedules alerts on game start for 5 players", func(t *testing.T) {
+	t.Run("schedules alerts on playGame start for 5 players", func(t *testing.T) {
 		blindAlerter := &poker.SpyBlindAlerter{}
 		game := poker.NewTexasHoldem(blindAlerter, dummyPlayerStore)
 
@@ -32,7 +32,7 @@ func TestGame_Start(t *testing.T) {
 		checkSchedulingCases(cases, t, blindAlerter)
 	})
 
-	t.Run("schedules alerts on game start for 7 players", func(t *testing.T) {
+	t.Run("schedules alerts on playGame start for 7 players", func(t *testing.T) {
 		blindAlerter := &poker.SpyBlindAlerter{}
 		game := poker.NewTexasHoldem(blindAlerter, dummyPlayerStore)
 
